@@ -4,6 +4,7 @@ from telegram.ext import (Updater, CommandHandler, MessageHandler, Filters, Rege
 						  ConversationHandler)
 
 import json
+import random
 import warnings
 import requests
 from pprint import pprint
@@ -18,6 +19,7 @@ TOKEN = "858696338:AAEMPf6WqFLZ0MRMhROcIy2FnMfnyt_R9VI"
 class Message_handler(object):
 	def __init__(self):
 		self.bot_token = TOKEN
+		with open("responseMessages.json", "r", encoding="utf8") as f: self.intentMessages = json.load(f)
 		
 
 	def send_chat_action(self, chat_id, action = "typing"):
@@ -45,6 +47,11 @@ class Message_handler(object):
 			base_url = 'https://api.telegram.org/bot{}/sendMessage'.format(self.bot_token)
 			response = requests.get(base_url, params = params)
 
+	def send_intent_message(self, intent, chat_id, message_id=None):
+		selectedMsg = random.choice(self.intentMessages[intent])
+		print("Selected response is: {}".format(selectedMsg))
+		self.send_message(chat_id, selectedMsg, reply_to=message_id)
+
 
 class LUIS_handler(object):
 	def __init__(self, appId="bc3ff1e2-70a8-4d2b-a7b8-15ba16b0321c", authKey="e704bf3d2d214dcda7d4821d614bfd57"):
@@ -57,12 +64,11 @@ class LUIS_handler(object):
 		if response.status_code == 200:
 			return response.json()
 
-	def getResponse(self, msg):
+	def getIntent(self, msg):
 		msgData = self.query(msg)
 		intent = msgData['topScoringIntent']['intent']
-		if intent == "welcome": return "¡Hola!"
-		elif intent == "help": return "No te puedo ayudar, soy muy inútil ahora."
-		elif intent == "bye": return "¡Chao pescao!"
+		return intent
+		
 
 
 MH = Message_handler()
@@ -96,8 +102,10 @@ def processMessage(bot, update):
 	message = update.message.text
 	message_id = update.message.message_id
 
-	response = LH.getResponse(message)
-	MH.send_message(chat_id, response, typing=True, reply_to=message_id)
+	print("New message from {} -> {}...".format(chat_id, message[:100]))
+	intent = LH.getIntent(message)
+	print("Message's intent: {}".format(intent))
+	MH.send_intent_message(intent, chat_id, message_id)
 
 	return MESSAGE_INCOME
 

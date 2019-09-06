@@ -1,0 +1,18 @@
+{
+    "welcome": [
+        "¡Hola!",
+        "¡Buenas!",
+        "¡Hey!"
+    ],
+    "help": [
+        "No te puedo ayudar, soy muy inútil ahora.",
+        "Me gustaría ayudarte, pero ahora mismo no puedo.",
+        "Lo siento, no estoy capacitado para ayudarte."
+    ],
+    "bye": [
+        "¡Chao!",
+        "¡Hasta luego!",
+        "Nos vemos",
+        "¡Adiós!"
+    ]
+}
