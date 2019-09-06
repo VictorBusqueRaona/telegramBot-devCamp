@@ -1,5 +1,5 @@
 #-- 3rd party imports --#
-# from telegram import ChatAction
+from telegram import ChatAction
 from telegram.ext import (Updater, CommandHandler, MessageHandler, Filters, RegexHandler,
 						  ConversationHandler)
 
@@ -7,22 +7,24 @@ import json
 import random
 import warnings
 import requests
-from pprint import pprint
 
 
-# States of the ConversationHandler
+# States of the ConversationHandler (single-state machine)
 MESSAGE_INCOME = 1
-TOKEN = "858696338:AAEMPf6WqFLZ0MRMhROcIy2FnMfnyt_R9VI"
+
+TOKEN = "858696338:AAEMPf6WqFLZ0MRMhROcIy2FnMfnyt_R9VI" # Change it for your own bot token
 
 
-
+"""
+	Helper class to interact with Telegram's API
+"""
 class Message_handler(object):
 	def __init__(self):
 		self.bot_token = TOKEN
 		with open("responseMessages.json", "r", encoding="utf8") as f: self.intentMessages = json.load(f)
 		
 
-	def send_chat_action(self, chat_id, action = "typing"):
+	def send_chat_action(self, chat_id, action = ChatAction.TYPING):
 		params = {
 			'chat_id': chat_id,
 			'action': action
@@ -50,9 +52,11 @@ class Message_handler(object):
 	def send_intent_message(self, intent, chat_id, message_id=None):
 		selectedMsg = random.choice(self.intentMessages[intent])
 		print("Selected response is: {}".format(selectedMsg))
-		self.send_message(chat_id, selectedMsg, reply_to=message_id)
+		self.send_message(chat_id, selectedMsg, reply_to=message_id, typing=True)
 
-
+"""
+	Helper class to interact with LUIS's API
+"""
 class LUIS_handler(object):
 	def __init__(self, appId="bc3ff1e2-70a8-4d2b-a7b8-15ba16b0321c", authKey="e704bf3d2d214dcda7d4821d614bfd57"):
 		self.appId = appId
@@ -70,7 +74,7 @@ class LUIS_handler(object):
 		return intent
 		
 
-
+# Global handlers
 MH = Message_handler()
 LH = LUIS_handler()
 
@@ -95,7 +99,7 @@ def done(bot, update):
 
 
 """
-	Function that manages the state machine
+	Function that gets triggered every time a regular message is received
 """
 def processMessage(bot, update):
 	chat_id = update.message.chat_id
