@@ -4,6 +4,7 @@ from telegram.ext import (Updater, CommandHandler, MessageHandler, Filters, Rege
 						  ConversationHandler)
 
 import json
+import warnings
 import requests
 from pprint import pprint
 
@@ -56,6 +57,13 @@ class LUIS_handler(object):
 		if response.status_code == 200:
 			return response.json()
 
+	def getResponse(self, msg):
+		msgData = self.query(msg)
+		intent = msgData['topScoringIntent']['intent']
+		if intent == "welcome": return "¡Hola!"
+		elif intent == "help": return "No te puedo ayudar, soy muy inútil ahora."
+		elif intent == "bye": return "¡Chao pescao!"
+
 
 MH = Message_handler()
 LH = LUIS_handler()
@@ -65,8 +73,6 @@ LH = LUIS_handler()
 	Function that responds to the /start command
 """
 def start(bot, update, args):
-
-
 	print("STARTED")
 	chat_id = update.message.chat_id
 	text = update.message.text[1:]
@@ -90,14 +96,9 @@ def processMessage(bot, update):
 	message = update.message.text
 	message_id = update.message.message_id
 
-	msgData = LH.query(message)
-	intent = msgData['topScoringIntent']['intent']
-	if intent == "welcome":
-		MH.send_message(chat_id, "¡Hola!", typing=True, reply_to=message_id)
-	elif intent == "help":
-		MH.send_message(chat_id, "No te puedo ayudar, soy muy inútil ahora.", typing=True, reply_to=message_id)
-	elif intent == "bye":
-		MH.send_message(chat_id, "¡Chao pescao!", typing=True, reply_to=message_id)
+	response = LH.getResponse(message)
+	MH.send_message(chat_id, response, typing=True, reply_to=message_id)
+
 	return MESSAGE_INCOME
 
 
@@ -107,7 +108,7 @@ def processMessage(bot, update):
 def main():
 
 		# Create the Updater and pass it your bot's token.
-
+		warnings.filterwarnings("ignore")
 		updater = Updater(TOKEN)
 
 		dp = updater.dispatcher
