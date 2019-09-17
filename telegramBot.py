@@ -66,12 +66,7 @@ class LUIS_handler(object):
 	def query(self, msg):
 		response = requests.get(self.url + msg)
 		if response.status_code == 200:
-			return response.json()
-
-	def getIntent(self, msg):
-		msgData = self.query(msg)
-		intent = msgData['topScoringIntent']['intent']
-		return intent
+			return response.json()['topScoringIntent']['intent'], response.json()['entities']
 		
 
 # Global handlers
@@ -107,7 +102,7 @@ def processMessage(bot, update):
 	message_id = update.message.message_id
 
 	print("New message from {} -> {}...".format(chat_id, message[:100]))
-	intent = LH.getIntent(message)
+	intent, _ = LH.query(message)
 	print("Message's intent: {}".format(intent))
 	MH.send_intent_message(intent, chat_id, message_id)
 
@@ -143,6 +138,7 @@ def main():
 		# SIGTERM or SIGABRT. This should be used most of the time, since
 		# start_polling() is non-blocking and will stop the bot gracefully.
 		updater.idle()
+
 
 if __name__ == '__main__':
 	main()
