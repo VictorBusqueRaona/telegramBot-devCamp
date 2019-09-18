@@ -7,10 +7,12 @@ import json
 import random
 import warnings
 import requests
+import datetime
+import unidecode
 
 
 # States of the ConversationHandler (single-state machine)
-MESSAGE_INCOME = 1
+MESSAGE_INCOME, DATACOLLECTION = 1, 2
 
 TOKEN = "858696338:AAEMPf6WqFLZ0MRMhROcIy2FnMfnyt_R9VI" # Change it for your own bot token
 
@@ -23,7 +25,6 @@ class Message_handler(object):
 		self.bot_token = TOKEN
 		with open("responseMessages.json", "r", encoding="utf8") as f: self.intentMessages = json.load(f)
 		
-
 	def send_chat_action(self, chat_id, action = ChatAction.TYPING):
 		params = {
 			'chat_id': chat_id,
@@ -31,7 +32,6 @@ class Message_handler(object):
 		}
 		base_url = 'https://api.telegram.org/bot{}/sendChatAction'.format(self.bot_token)
 		response = requests.get(base_url, params = params)
-
 
 	def send_message(self, chat_id, message, typing = False, reply_to = None, parse_mode = 'Markdown'):
 		print("sending messsage...")
@@ -58,16 +58,65 @@ class Message_handler(object):
 	Helper class to interact with LUIS's API
 """
 class LUIS_handler(object):
-	def __init__(self, appId="bc3ff1e2-70a8-4d2b-a7b8-15ba16b0321c", authKey="e704bf3d2d214dcda7d4821d614bfd57"):
+	def __init__(self, appId="fabd7d06-9bcf-4ec0-8f66-7841fe4f944b", authKey="e704bf3d2d214dcda7d4821d614bfd57"):
 		self.appId = appId
 		self.authKey = authKey
-		self.url = "https://westeurope.api.cognitive.microsoft.com/luis/v2.0/apps/{}?subscription-key={}&q=".format(appId, authKey)
+		self.url = "https://westeurope.api.cognitive.microsoft.com/luis/v2.0/apps/{}?staging=true&subscription-key={}&q=".format(appId, authKey)
 
 	def query(self, msg):
 		response = requests.get(self.url + msg)
 		if response.status_code == 200:
-			return response.json()['topScoringIntent']['intent'], response.json()['entities']
+			intent = response.json()['topScoringIntent']['intent']
+			entities = response.json()['entities']
+
+			luisEntities = [ {'type': e['type'], 'value': e['entity'] if not 'resolution' in e.keys() else e['resolution']['values'][0]} for e in response.json()['entities']]   
+			
+			for e in luisEntities:
+				if e['type'] == "Date": e['value'] = str(Date(e['value']))
+			return intent, luisEntities
 		
+"""
+	Helper class to handle LUIS "date" entities
+"""
+class Date(object):
+    def __init__(self, strDate):
+        self.strDate = strDate
+        self.m2n = {
+            "enero": "01", "febrero": "02", "marzo": "03", "abril": "04",
+            "mayo": "05", "junio": "06", "julio": "07", "agosto": "08", 
+            "septiembre": "09", "octubre": "10", "noviembre": "11", "diciembre": "12"
+        }
+        self.stdFormat = "{0}-{1}-{2}T00:00:00"
+
+    def toDatetime(self):
+        aux = self.strDate.replace('del', '').replace('de','')
+        splitment = aux.split()
+        try:
+            try: 
+                day, month, year = splitment
+                try: month = self.m2n[month]
+                except: month = month if int(month) >= 10 else "0"+month
+            except:
+                try:
+                    month, year, day = splitment + [1]
+                    try: month = self.m2n[month]
+                    except: month = month if int(month) >= 10 else "0"+month
+                except:
+                    day, month = splitment
+                    try: month = self.m2n[month]
+                    except: month = month if int(month) >= 10 else "0"+month
+                    year = str(datetime.datetime.now().year)
+            if len(year) == 2: year = "{}{}".format("19", year)
+            return datetime.datetime(int(year), int(month), int(day))
+        except: None
+
+    def __repr__(self):
+        date = self.toDatetime()
+        if not date: return ""
+        date = str(date).split()[0]
+        year, month, day = [item.zfill(2) for item in date.split('-')]
+        return self.stdFormat.format(year, month, day)
+
 
 # Global handlers
 MH = Message_handler()
@@ -80,7 +129,6 @@ LH = LUIS_handler()
 def start(bot, update, args):
 	print("STARTED")
 	chat_id = update.message.chat_id
-	text = update.message.text[1:]
 	message_id = update.message.message_id
 	MH.send_message(chat_id, "¡Bienvenido al bot!", typing=True, reply_to=message_id)
 	return MESSAGE_INCOME
