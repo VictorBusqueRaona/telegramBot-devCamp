@@ -90,43 +90,47 @@ class LUIS_handler(object):
 	Helper class to handle LUIS "date" entities
 """
 class Date(object):
-    def __init__(self, strDate):
-        self.strDate = strDate
-        self.m2n = {
-            "enero": "01", "febrero": "02", "marzo": "03", "abril": "04",
-            "mayo": "05", "junio": "06", "julio": "07", "agosto": "08", 
-            "septiembre": "09", "octubre": "10", "noviembre": "11", "diciembre": "12"
-        }
-        self.stdFormat = "{0}-{1}-{2}T00:00:00"
+	def __init__(self, strDate):
+		self.strDate = strDate
+		self.m2n = {
+			"enero": "01", "febrero": "02", "marzo": "03", "abril": "04",
+			"mayo": "05", "junio": "06", "julio": "07", "agosto": "08", 
+			"septiembre": "09", "octubre": "10", "noviembre": "11", "diciembre": "12"
+		}
+		self.stdFormat = "{0}-{1}-{2}T00:00:00"
 
-    def toDatetime(self):
-        aux = self.strDate.replace('del', '').replace('de','')
-        splitment = aux.split()
-        try:
-            try: 
-                day, month, year = splitment
-                try: month = self.m2n[month]
-                except: month = month if int(month) >= 10 else "0"+month
-            except:
-                try:
-                    month, year, day = splitment + [1]
-                    try: month = self.m2n[month]
-                    except: month = month if int(month) >= 10 else "0"+month
-                except:
-                    day, month = splitment
-                    try: month = self.m2n[month]
-                    except: month = month if int(month) >= 10 else "0"+month
-                    year = str(datetime.datetime.now().year)
-            if len(year) == 2: year = "{}{}".format("19", year)
-            return datetime.datetime(int(year), int(month), int(day))
-        except: None
+	def toDatetime(self):
+		aux = self.strDate.replace('del', '').replace('de','')
+		splitment = aux.split()
+		print(splitment)
+		try:
+			try: 
+				day, month, year = splitment
+				try: month = self.m2n[month]
+				except: month = month if int(month) >= 10 else "0"+month
+			except:
+				try:
+					month, year, day = splitment + [1]
+					try: month = self.m2n[month]
+					except: month = month if int(month) >= 10 else "0"+month
+				except:
+					day, month = splitment
+					try: month = self.m2n[month]
+					except Exception as e: month = month if int(month) >= 10 else "0"+month
+					year = str(datetime.datetime.now().year)
+			if len(year) == 2: year = "{}{}".format("19", year)
+			return datetime.datetime(int(year), int(month), int(day))
+		except Exception as e:
+			print(e)
+			return None
 
-    def __repr__(self):
-        date = self.toDatetime()
-        if not date: return ""
-        date = str(date).split()[0]
-        year, month, day = [item.zfill(2) for item in date.split('-')]
-        return self.stdFormat.format(year, month, day)
+	def __repr__(self):
+		date = self.toDatetime()
+		if not date: return ""
+		date = str(date).split()[0]
+		year, month, day = [item.zfill(2) for item in date.split('-')]
+		print("{} -> {}".format(self.strDate, self.stdFormat.format(year, month, day)))
+		return self.stdFormat.format(year, month, day)
 
 
 #----------------------------------------- RESPITRON CLASSES/FUNCTIONS ------------------------------------------
@@ -196,6 +200,7 @@ def deletePatient(chat_id):
 
 
 def addConsumption(chat_id, liters, date):
+	print("Date is ------> {}".format(date))
 	data = {
 		"PatientId": chatId_2_patientId[chat_id],
 		"ConsumptionDate": date,
@@ -297,11 +302,13 @@ def processMessage(bot, update):
 			return MESSAGE_INCOME
 		else: liters = [e['value'] for e in entities if e['type'] == 'Number'][0]
 		if not [e for e in entities if e['type'] == 'Date']: date = "2019-09-20T00:00:00"
+		elif not [e['value'] for e in entities if e['type'] == 'Date'][0]: 
+			MH.send_message(chat_id, "Ha habido un problema al anotar el consumo.", message_id)
 		else: date = [e['value'] for e in entities if e['type'] == 'Date'][0]
 		added = addConsumption(chat_id, liters, date)
 		if added: MH.send_message(chat_id, "¡Estupendo! He anotado el consumo.", message_id)
 		else: MH.send_message(chat_id, "Ha habido un problema al anotar el consumo.", message_id)
-
+		return MESSAGE_INCOME
 	MH.send_intent_message(intent, chat_id, message_id)
 
 	return MESSAGE_INCOME
