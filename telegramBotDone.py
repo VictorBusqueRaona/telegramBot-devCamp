@@ -212,6 +212,11 @@ def addConsumption(chat_id, liters, date):
 MH = Message_handler()
 LH = LUIS_handler()
 
+"""
+	Function that ends a conversation
+"""
+def done(bot, update):
+	return ConversationHandler.END
 
 """
 	Function that responds to the /start command
@@ -324,6 +329,7 @@ def main():
 				MESSAGE_INCOME: [MessageHandler(filters = Filters.text, callback = processMessage)],
 				RESET: [MessageHandler(filters = Filters.text, callback = start)]
 			},
+			fallbacks=[RegexHandler('^Done$', done)],
 			allow_reentry = True #So users can use /login
 		)
 		dp.add_handler(conv_handler)

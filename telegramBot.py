@@ -16,7 +16,7 @@ MESSAGE_INCOME = 1
 
 TOKEN = "858696338:AAEMPf6WqFLZ0MRMhROcIy2FnMfnyt_R9VI" # Change it for your own bot token
 LUIS_APPID = "bc3ff1e2-70a8-4d2b-a7b8-15ba16b0321c"
-LUIS_AUTHKEY = ""	
+LUIS_AUTHKEY = ""
 
 
 #----------------------------------------- HELPER CLASSES ------------------------------------------
@@ -130,6 +130,11 @@ class Date(object):
 MH = Message_handler()
 LH = LUIS_handler()
 
+"""
+	Function that ends a conversation
+"""
+def done(bot, update):
+	return ConversationHandler.END
 
 """
 	Function that responds to the /start command
@@ -179,6 +184,7 @@ def main():
 			states = {
 				MESSAGE_INCOME: [MessageHandler(filters = Filters.text, callback = processMessage)],
 			},
+			fallbacks=[RegexHandler('^Done$', done)],
 			allow_reentry = True #So users can use /login
 		)
 		dp.add_handler(conv_handler)
