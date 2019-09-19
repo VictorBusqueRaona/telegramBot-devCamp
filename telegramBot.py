@@ -16,7 +16,7 @@ MESSAGE_INCOME = 1
 
 TOKEN = "858696338:AAEMPf6WqFLZ0MRMhROcIy2FnMfnyt_R9VI" # Change it for your own bot token
 LUIS_APPID = "bc3ff1e2-70a8-4d2b-a7b8-15ba16b0321c"
-LUIS_AUTHKEY = "e704bf3d2d214dcda7d4821d614bfd57"	
+LUIS_AUTHKEY = ""	
 
 
 #----------------------------------------- HELPER CLASSES ------------------------------------------
