@@ -16,7 +16,7 @@ MESSAGE_INCOME, DATACOLLECTION, RESET = 1, 2, 3
 
 TOKEN = "858696338:AAEMPf6WqFLZ0MRMhROcIy2FnMfnyt_R9VI" # Change it for your own bot token
 LUIS_APPID = "fabd7d06-9bcf-4ec0-8f66-7841fe4f944b"
-LUIS_AUTHKEY = ""
+LUIS_AUTHKEY = "e704bf3d2d214dcda7d4821d614bfd57"
 
 
 chatId_2_patientId = { }
@@ -306,7 +306,7 @@ def processMessage(bot, update):
 			MH.send_message(chat_id, "Ha habido un problema al anotar el consumo.", message_id)
 		else: date = [e['value'] for e in entities if e['type'] == 'Date'][0]
 		added = addConsumption(chat_id, liters, date)
-		if added: MH.send_message(chat_id, "¡Estupendo! He anotado el consumo.", message_id)
+		if added: MH.send_message(chat_id, "¡Estupendo! He anotado {} litros para el {}.".format(liters, date.split('T')[0]), message_id)
 		else: MH.send_message(chat_id, "Ha habido un problema al anotar el consumo.", message_id)
 		return MESSAGE_INCOME
 	MH.send_intent_message(intent, chat_id, message_id)
