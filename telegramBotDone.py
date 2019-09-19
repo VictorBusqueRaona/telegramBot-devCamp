@@ -15,9 +15,15 @@ import unidecode
 MESSAGE_INCOME, DATACOLLECTION, RESET = 1, 2, 3
 
 TOKEN = "858696338:AAEMPf6WqFLZ0MRMhROcIy2FnMfnyt_R9VI" # Change it for your own bot token
+LUIS_APPID = "fabd7d06-9bcf-4ec0-8f66-7841fe4f944b"
+LUIS_AUTHKEY = "e704bf3d2d214dcda7d4821d614bfd57"
+
 
 chatId_2_patientId = { }
 patients = { }
+
+
+#----------------------------------------- HELPER CLASSES ------------------------------------------
 
 
 """
@@ -63,7 +69,7 @@ class Message_handler(object):
 	Helper class to interact with LUIS's API
 """
 class LUIS_handler(object):
-	def __init__(self, appId="fabd7d06-9bcf-4ec0-8f66-7841fe4f944b", authKey="e704bf3d2d214dcda7d4821d614bfd57"):
+	def __init__(self, appId=LUIS_APPID, authKey=LUIS_AUTHKEY):
 		self.appId = appId
 		self.authKey = authKey
 		self.url = "https://westeurope.api.cognitive.microsoft.com/luis/v2.0/apps/{}?staging=true&subscription-key={}&q=".format(appId, authKey)
@@ -123,28 +129,7 @@ class Date(object):
         return self.stdFormat.format(year, month, day)
 
 
-def getPatients():
-	response = requests.get("https://respitronday220190915060001.azurewebsites.net/api/Patients")
-	if response.status_code == 200: return response.json()
-
-
-def deletePatient(chat_id):
-	pId = chatId_2_patientId[chat_id]
-	response = requests.delete("https://respitronday220190915060001.azurewebsites.net/api/Patients/{}".format(pId))
-	return bool(response)
-
-def addConsumption(chat_id, liters, date):
-	data = {
-		"PatientId": chatId_2_patientId[chat_id],
-		"ConsumptionDate": date,
-		"O2LitersConsumption": liters
-	}
-	response = requests.post("https://respitronday220190915060001.azurewebsites.net/api/ConsumptionHistories", json=data)
-	return bool(response)
-
-# Global handlers
-MH = Message_handler()
-LH = LUIS_handler()
+#----------------------------------------- RESPITRON CLASSES/FUNCTIONS ------------------------------------------
 
 
 class Patient(object):
@@ -177,12 +162,9 @@ class Patient(object):
 			"CigarrettesDailyConsumption": self.CigarrettesDailyConsumption,
 			"CityId": self.CityId
 		}
-		print("POST\n{}".format(data))
 		response = requests.post(
 			"https://respitronday220190915060001.azurewebsites.net/api/Patients",
-			json=data
-		)
-		print(response.json())
+			json=data)
 		return response.json()['Id']
 
 	def setField(self, field, value):
@@ -200,6 +182,35 @@ class Patient(object):
 			if value > 0: self.Smoker = True
 			else: self.Smoker = False
 			self.CigarrettesDailyConsumption = value
+
+
+def getPatients():
+	response = requests.get("https://respitronday220190915060001.azurewebsites.net/api/Patients")
+	if response.status_code == 200: return response.json()
+
+
+def deletePatient(chat_id):
+	pId = chatId_2_patientId[chat_id]
+	response = requests.delete("https://respitronday220190915060001.azurewebsites.net/api/Patients/{}".format(pId))
+	return bool(response)
+
+
+def addConsumption(chat_id, liters, date):
+	data = {
+		"PatientId": chatId_2_patientId[chat_id],
+		"ConsumptionDate": date,
+		"O2LitersConsumption": liters
+	}
+	response = requests.post("https://respitronday220190915060001.azurewebsites.net/api/ConsumptionHistories", json=data)
+	return bool(response)
+
+
+#----------------------------------------- DIALOG HANDLING FUNCTIONS ------------------------------------------
+
+
+# Global handlers
+MH = Message_handler()
+LH = LUIS_handler()
 
 
 """
@@ -227,7 +238,9 @@ def start(bot, update, args):
 	MH.send_message(chat_id, "¡Hola {}, encantado! ¡Soy Respibot! Te voy a hacer unas cuantas preguntas para generar tu perfil.".format(user_name), typing=True, reply_to=message_id)
 	return collectData(bot, update)
 
-
+"""
+	Function that collects patient data (conversational form)
+"""
 def collectData(bot, update):
 	global patients, chatId_2_patientId
 	chat_id = update.message.chat_id
@@ -236,31 +249,22 @@ def collectData(bot, update):
 	patient = patients[chat_id]
 
 	intent, entities = LH.query(text)
+
 	if intent != "informarPatient": return DATACOLLECTION
-	for entity in entities:
-		type, value = entity['type'], entity['value']
-		print("Got: {} -> {}".format(type, value))
-		patient.setField(type, value)
-	print("Checking missing fields")
-	missingField, question = patient.getMissingField()
-	print("Next field: {} - {}".format(missingField, question))
-	if not missingField: 
-		pId = patient.postToAPI()
-		del(patients[chat_id])
-		chatId_2_patientId[chat_id] = pId
-		MH.send_message(chat_id, "¡Genial! Ya te he registrado en RespiTron.", typing=True)
-		return MESSAGE_INCOME
 	else:
-		MH.send_message(chat_id, question, typing=True)
-		return DATACOLLECTION
-			
-
-"""
-	Function that ends a conversation
-"""
-def done(bot, update):
-	return ConversationHandler.END
-
+		for entity in entities:
+			type, value = entity['type'], entity['value']
+			patient.setField(type, value)
+		missingField, question = patient.getMissingField()
+		if not missingField: 
+			pId = patient.postToAPI()
+			del(patients[chat_id])
+			chatId_2_patientId[chat_id] = pId
+			MH.send_message(chat_id, "¡Genial! Ya te he registrado en RespiTron.", typing=True)
+			return MESSAGE_INCOME
+		else:
+			MH.send_message(chat_id, question, typing=True)
+			return DATACOLLECTION
 
 
 """
@@ -298,6 +302,9 @@ def processMessage(bot, update):
 	return MESSAGE_INCOME
 
 
+#----------------------------------------- MAIN ------------------------------------------
+
+
 """
 	Main function, polls waiting for messages
 """
@@ -317,7 +324,6 @@ def main():
 				MESSAGE_INCOME: [MessageHandler(filters = Filters.text, callback = processMessage)],
 				RESET: [MessageHandler(filters = Filters.text, callback = start)]
 			},
-			fallbacks=[RegexHandler('^Done$', done)],
 			allow_reentry = True #So users can use /login
 		)
 		dp.add_handler(conv_handler)

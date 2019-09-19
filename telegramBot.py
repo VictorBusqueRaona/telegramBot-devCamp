@@ -12,9 +12,14 @@ import unidecode
 
 
 # States of the ConversationHandler (single-state machine)
-MESSAGE_INCOME, DATACOLLECTION = 1, 2
+MESSAGE_INCOME = 1
 
 TOKEN = "858696338:AAEMPf6WqFLZ0MRMhROcIy2FnMfnyt_R9VI" # Change it for your own bot token
+LUIS_APPID = "bc3ff1e2-70a8-4d2b-a7b8-15ba16b0321c"
+LUIS_AUTHKEY = "e704bf3d2d214dcda7d4821d614bfd57"	
+
+
+#----------------------------------------- HELPER CLASSES ------------------------------------------
 
 
 """
@@ -58,7 +63,7 @@ class Message_handler(object):
 	Helper class to interact with LUIS's API
 """
 class LUIS_handler(object):
-	def __init__(self, appId="fabd7d06-9bcf-4ec0-8f66-7841fe4f944b", authKey="e704bf3d2d214dcda7d4821d614bfd57"):
+	def __init__(self, appId=LUIS_APPID, authKey=LUIS_AUTHKEY):
 		self.appId = appId
 		self.authKey = authKey
 		self.url = "https://westeurope.api.cognitive.microsoft.com/luis/v2.0/apps/{}?staging=true&subscription-key={}&q=".format(appId, authKey)
@@ -118,6 +123,9 @@ class Date(object):
         return self.stdFormat.format(year, month, day)
 
 
+#----------------------------------------- DIALOG HANDLING FUNCTIONS ------------------------------------------
+
+
 # Global handlers
 MH = Message_handler()
 LH = LUIS_handler()
@@ -135,13 +143,6 @@ def start(bot, update, args):
 
 
 """
-	Function that ends a conversation
-"""
-def done(bot, update):
-	return ConversationHandler.END
-
-
-"""
 	Function that gets triggered every time a regular message is received
 """
 def processMessage(bot, update):
@@ -155,6 +156,10 @@ def processMessage(bot, update):
 	MH.send_intent_message(intent, chat_id, message_id)
 
 	return MESSAGE_INCOME
+
+
+
+#----------------------------------------- MAIN ------------------------------------------
 
 
 """
@@ -174,7 +179,6 @@ def main():
 			states = {
 				MESSAGE_INCOME: [MessageHandler(filters = Filters.text, callback = processMessage)],
 			},
-			fallbacks=[RegexHandler('^Done$', done)],
 			allow_reentry = True #So users can use /login
 		)
 		dp.add_handler(conv_handler)
