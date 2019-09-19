@@ -12,7 +12,7 @@ import unidecode
 
 
 # States of the ConversationHandler (single-state machine)
-MESSAGE_INCOME, DATACOLLECTION = 1, 2
+MESSAGE_INCOME, DATACOLLECTION, RESET = 1, 2, 3
 
 TOKEN = "858696338:AAEMPf6WqFLZ0MRMhROcIy2FnMfnyt_R9VI" # Change it for your own bot token
 
@@ -123,10 +123,24 @@ class Date(object):
         return self.stdFormat.format(year, month, day)
 
 
-def getAPIJson(url="https://respitronday220190915060001.azurewebsites.net/api/Patients"):
-	response = requests.get(url)
+def getPatients():
+	response = requests.get("https://respitronday220190915060001.azurewebsites.net/api/Patients")
 	if response.status_code == 200: return response.json()
 
+
+def deletePatient(chat_id):
+	pId = chatId_2_patientId[chat_id]
+	response = requests.delete("https://respitronday220190915060001.azurewebsites.net/api/Patients/{}".format(pId))
+	return bool(response)
+
+def addConsumption(chat_id, liters, date):
+	data = {
+		"PatientId": chatId_2_patientId[chat_id],
+		"ConsumptionDate": date,
+		"O2LitersConsumption": liters
+	}
+	response = requests.post("https://respitronday220190915060001.azurewebsites.net/api/ConsumptionHistories", json=data)
+	return bool(response)
 
 # Global handlers
 MH = Message_handler()
@@ -195,17 +209,17 @@ def start(bot, update, args):
 	global chatId_2_patientId, patients
 	print("STARTED")
 	chat_id = update.message.chat_id
-	text = update.message.text[1:]
 	message_id = update.message.message_id
 
 	user_name = update.message.from_user.first_name
 	last_name = update.message.from_user.last_name
 
-	patientsData = getAPIJson()
+	patientsData = getPatients()
 	for patient in patientsData:
 		pName, pSurname, pId = patient["Name"], patient["Surname"], patient["Id"]
 		if unidecode.unidecode(pName.lower()) == unidecode.unidecode(user_name.lower()):
 			chatId_2_patientId[chat_id] = pId
+			print("User {} with Id {} started conversation".format(user_name, pId))
 			MH.send_message(chat_id, "Hola de nuevo, {}.".format(user_name), typing=True, reply_to=message_id)
 			return MESSAGE_INCOME
 	print("No matches...")
@@ -221,7 +235,8 @@ def collectData(bot, update):
 
 	patient = patients[chat_id]
 
-	_, entities = LH.query(text)
+	intent, entities = LH.query(text)
+	if intent != "informarPatient": return DATACOLLECTION
 	for entity in entities:
 		type, value = entity['type'], entity['value']
 		print("Got: {} -> {}".format(type, value))
@@ -231,6 +246,7 @@ def collectData(bot, update):
 	print("Next field: {} - {}".format(missingField, question))
 	if not missingField: 
 		pId = patient.postToAPI()
+		del(patients[chat_id])
 		chatId_2_patientId[chat_id] = pId
 		MH.send_message(chat_id, "¡Genial! Ya te he registrado en RespiTron.", typing=True)
 		return MESSAGE_INCOME
@@ -238,7 +254,6 @@ def collectData(bot, update):
 		MH.send_message(chat_id, question, typing=True)
 		return DATACOLLECTION
 			
-
 
 """
 	Function that ends a conversation
@@ -257,8 +272,27 @@ def processMessage(bot, update):
 	message_id = update.message.message_id
 
 	print("New message from {} -> {}...".format(chat_id, message[:100]))
-	intent, _ = LH.query(message)
+	intent, entities = LH.query(message)
 	print("Message's intent: {}".format(intent))
+	if intent == "eliminarPatient": 
+		deleted = deletePatient(chat_id)
+		if deleted: 
+			MH.send_message(chat_id, "Oh... Está bien, ya te he dado de baja.", typing=True)
+			return RESET
+		else: 
+			MH.send_message(chat_id, "¡Uy! No he podido eliminarte, tal vez no estabas registrado.", typing=True)
+			return MESSAGE_INCOME
+	if intent == "informarConsumption":
+		if not [e for e in entities if e['type'] == 'Number']: 
+			MH.send_message(chat_id, "No he detectado la cantidad de litros!", message_id)
+			return MESSAGE_INCOME
+		else: liters = [e['value'] for e in entities if e['type'] == 'Number'][0]
+		if not [e for e in entities if e['type'] == 'Date']: date = "2019-09-20T00:00:00"
+		else: date = [e['value'] for e in entities if e['type'] == 'Date'][0]
+		added = addConsumption(chat_id, liters, date)
+		if added: MH.send_message(chat_id, "¡Estupendo! He anotado el consumo.", message_id)
+		else: MH.send_message(chat_id, "Ha habido un problema al anotar el consumo.", message_id)
+
 	MH.send_intent_message(intent, chat_id, message_id)
 
 	return MESSAGE_INCOME
@@ -280,7 +314,8 @@ def main():
 						# MessageHandler(filters = Filters.text, callback = processMessage)],
 			states = {
 				DATACOLLECTION: [MessageHandler(filters = Filters.text, callback = collectData)],
-				MESSAGE_INCOME: [MessageHandler(filters = Filters.text, callback = processMessage)]
+				MESSAGE_INCOME: [MessageHandler(filters = Filters.text, callback = processMessage)],
+				RESET: [MessageHandler(filters = Filters.text, callback = start)]
 			},
 			fallbacks=[RegexHandler('^Done$', done)],
 			allow_reentry = True #So users can use /login
