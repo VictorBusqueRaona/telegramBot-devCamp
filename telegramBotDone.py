@@ -16,7 +16,7 @@ MESSAGE_INCOME, DATACOLLECTION, RESET = 1, 2, 3
 
 TOKEN = "858696338:AAEMPf6WqFLZ0MRMhROcIy2FnMfnyt_R9VI" # Change it for your own bot token
 LUIS_APPID = "fabd7d06-9bcf-4ec0-8f66-7841fe4f944b"
-LUIS_AUTHKEY = "e704bf3d2d214dcda7d4821d614bfd57"
+LUIS_AUTHKEY = ""
 
 
 chatId_2_patientId = { }
